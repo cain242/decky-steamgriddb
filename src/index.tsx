@@ -14,7 +14,11 @@ import { removeStyles } from './utils/styleInjector';
 
 export default definePlugin(() => {
   const getSetting = async (key: string, fallback: any): Promise<any> => {
-    return await call('get_setting', key, fallback);
+    try {
+      return await call('get_setting', key, fallback);
+    } catch (e) {
+      return fallback;
+    }
   };
 
   routerHook.addRoute('/steamgriddb/:appid/:assetType?', () => (
@@ -40,10 +44,15 @@ export default definePlugin(() => {
       }
       addHomePatch(true, squares, uniformFeatured, false, coverFit);
     }
+  }).catch((e) => {
+    console.error('[SGDB] Failed to initialize settings', e);
   });
 
   getSetting('capsule_glow_amount', 100).then((amount) => {
-    addCapsuleGlowPatch(parseInt(amount, 10));
+    const amountNum = typeof amount === 'string' ? parseInt(amount, 10) : amount;
+    addCapsuleGlowPatch(amountNum);
+  }).catch((e) => {
+    console.error('[SGDB] Failed to initialize capsule glow', e);
   });
 
   return {

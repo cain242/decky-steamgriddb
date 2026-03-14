@@ -54,29 +54,31 @@ const patchWithCache = (element: any, cacheKey: string, patcher: (args: any[], r
 };
 
 export const addSquareLibraryPatch = (mounting = false, coverFit = false) => {
-  patch = routerHook.addPatch('/library', (props) => {
-    // inject container CSS
-    addStyle('sgdb-square-capsules-library', `
-      /* only select covers within library page, otherwise it breaks covers on other pages */
-      .${gamepadLibraryClasses.GamepadLibrary} .${libraryAssetImageClasses.Container}.${libraryAssetImageClasses.PortraitImage} {
-        aspect-ratio: 1 / 1 !important;
-        padding-top: unset !important;
-        height: auto !important;
+  removeSquareLibraryPatch(true);
+
+  // inject container CSS (outside patch callback — only needs to run once)
+  addStyle('sgdb-square-capsules-library', `
+    /* only select covers within library page, otherwise it breaks covers on other pages */
+    .${gamepadLibraryClasses.GamepadLibrary} .${libraryAssetImageClasses.Container}.${libraryAssetImageClasses.PortraitImage} {
+      aspect-ratio: 1 / 1 !important;
+      padding-top: unset !important;
+      height: auto !important;
+    }
+  `);
+
+  // inject cover fit CSS when enabled
+  if (coverFit) {
+    addStyle('sgdb-cover-fit-library', `
+      .${gamepadLibraryClasses.GamepadLibrary} .${libraryAssetImageClasses.Container}.${libraryAssetImageClasses.PortraitImage} img {
+        object-fit: cover !important;
+        object-position: top center !important;
       }
     `);
+  } else {
+    removeStyle('sgdb-cover-fit-library');
+  }
 
-    // inject cover fit CSS when enabled
-    if (coverFit) {
-      addStyle('sgdb-cover-fit-library', `
-        .${gamepadLibraryClasses.GamepadLibrary} .${libraryAssetImageClasses.Container}.${libraryAssetImageClasses.PortraitImage} img {
-          object-fit: cover !important;
-          object-position: top center !important;
-        }
-      `);
-    } else {
-      removeStyle('sgdb-cover-fit-library');
-    }
-
+  patch = routerHook.addPatch('/library', (props) => {
     afterPatch(props.children, 'type', (_: Record<string, unknown>[], ret?: any) => {
       let cache: any = null;
       afterPatch(ret, 'type', (_: Record<string, unknown>[], ret2?: any) => {

@@ -31,6 +31,7 @@ const calculateDefaultCapsuleWidth = (newHeight: number) => {
 };
 
 export const addHomePatch = (mounting = false, square = false, matchFeatured = false, carouselLogo = false, coverFit = false) => {
+  removeHomePatch(true);
   if (square) {
     addStyle('sgdb-square-capsules-home', `
       /* only select home page */
@@ -96,6 +97,7 @@ export const addHomePatch = (mounting = false, square = false, matchFeatured = f
 
         let cache3: any = null;
         const recents = findInReactTree(ret2, (x) => x?.props && ('autoFocus' in x.props) && ('showBackground' in x.props));
+        if (!recents || !recents.type) return ret2; // <-- INSERT GUARD 1
 
         wrapReactType(recents);
         afterPatch(recents.type, 'type', (_: Record<string, unknown>[], ret3?: any) => {
@@ -107,6 +109,8 @@ export const addHomePatch = (mounting = false, square = false, matchFeatured = f
           }
 
           const p = findInReactTree(ret3, (x) => x?.props?.games && x?.props.onItemFocus);
+          if (!p || !p.type) return ret3; //
+
           afterPatch(p, 'type', (_: Record<string, unknown>[], ret4?: any) => {
             // const cache6: any[] = []; // cache carousel items
             cache3 = ret3;
@@ -114,6 +118,8 @@ export const addHomePatch = (mounting = false, square = false, matchFeatured = f
             wrapReactType(ret4);
             afterPatch(ret4.type, 'type', (_: Record<string, unknown>[], ret5?: any) => {
               const carouselProps = findInReactTree(ret5, (x) => x?.nItemHeight && x?.fnItemRenderer && x?.fnGetColumnWidth);
+              if (!carouselProps) return ret5; // <-- INSERT GUARD 3
+              
               const itemHeight = carouselProps.nItemHeight;
               let hasSeparator = false;
               /*

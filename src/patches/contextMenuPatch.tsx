@@ -77,25 +77,34 @@ const contextMenuPatch = (LibraryContextMenu: any) => {
     inner?: Patch,
     unpatch: () => void;
   } = { unpatch: () => {return null;} };
+
+  if (!LibraryContextMenu || !LibraryContextMenu.prototype) {
+    return patches;
+  }
+
   patches.outer = afterPatch(LibraryContextMenu.prototype, 'render', (_: Record<string, unknown>[], component: any) => {
-    log(component);
+    if (!component) return component;
+
     let appid: number = 1018880;
     if (component._owner) {
-      appid = component._owner.pendingProps.overview.appid;
+      appid = component._owner.pendingProps?.overview?.appid ?? 1018880;
     } else {
       // Oct 2025 client
-      const foundApp = findInTree(component.props.children, (x) => x?.app?.appid, { walkable: ['props', 'children'] });
+      const foundApp = findInTree(component.props?.children, (x) => x?.app?.appid, { walkable: ['props', 'children'] });
       if (foundApp) {
         appid = foundApp.app.appid;
       }
     }
 
     if (!patches.inner) {
+      if (!component.type) return component;
       patches.inner = afterPatch(component, 'type', (_: any, ret: any) => {
+        if (!ret || !ret.type || !ret.type.prototype) return ret;
         // initial render
         afterPatch(ret.type.prototype, 'render', (_: any, ret2: any) => {
+          if (!ret2 || !ret2.props || !ret2.props.children) return ret2;
           const menuItems = ret2.props.children[0]; // always the first child
-          if (!isOpeningAppContextMenu(menuItems)) return ret2;
+          if (!menuItems || !isOpeningAppContextMenu(menuItems)) return ret2;
           try {
             handleItemDupes(menuItems);
           } catch (error) {
@@ -107,6 +116,7 @@ const contextMenuPatch = (LibraryContextMenu: any) => {
 
         // when steam decides to regresh app overview
         afterPatch(ret.type.prototype, 'shouldComponentUpdate', ([nextProps]: any, shouldUpdate: any) => {
+          if (!nextProps || !nextProps.children) return shouldUpdate;
           try {
             handleItemDupes(nextProps.children);
           } catch (error) {
@@ -123,7 +133,9 @@ const contextMenuPatch = (LibraryContextMenu: any) => {
         return ret;
       });
     } else {
-      spliceArtworkItem(component.props.children, appid);
+      if (component.props?.children) {
+        spliceArtworkItem(component.props.children, appid);
+      }
     }
     return component;
   });
@@ -139,11 +151,11 @@ const contextMenuPatch = (LibraryContextMenu: any) => {
  */
 export const LibraryContextMenu = fakeRenderComponent(
   Object.values(
-    findModuleByExport((e: Export) => e?.toString && e.toString().includes('().LibraryContextMenu'))
+    findModuleByExport((e: Export) => e?.toString && e.toString().includes('().LibraryContextMenu')) || {}
   ).find((sibling) => (
     sibling?.toString().includes('createElement') &&
     sibling?.toString().includes('navigator:')
   )) as FC
-).type;
+)?.type;
 
 export default contextMenuPatch;
