@@ -17,8 +17,6 @@
   "LABEL_USAGE_TITLE": "Lost? Here's a Quick Guide",
   "LABEL_SQUARE_CAPSULES": "Square Capsules",
   "LABEL_SQUARE_CAPSULES_DESC": "Use square capsules instead of portrait ones. Square filters will be automatically selected.",
-  "LABEL_COVER_FIT": "Cover Fit",
-  "LABEL_COVER_FIT_DESC": "Crop vertical artwork to fill the square frame without distortion. Keeps the top of the image visible (best for covers with logos at the top).",
   "LABEL_UNIFORM_RECENT": "Matching Recents Capsule",
   "LABEL_UNIFORM_RECENT_DESC": "Make the most recently played game on the home screen match the rest of the capsules.",
   "LABEL_CAPSULE_GLOW": "Capsule Glow",

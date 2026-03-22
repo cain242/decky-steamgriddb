@@ -1,10 +1,11 @@
 import {
+  useState,
   createContext,
   FC,
   ReactNode,
+  useEffect,
   useContext,
   useMemo,
-  useRef,
 } from 'react';
 import { call } from '@decky/api';
 import debounce from 'just-debounce';
@@ -20,42 +21,34 @@ type SettingsContextType = {
 };
 
 export const SettingsProvider: FC<{ children: ReactNode }> = ({ children }) => {
-  // Per-key debounced savers so 'squares' and 'filters_grid_p'
-  // never cancel each other's timers.
-  const debouncedSavers = useRef<Record<string, ReturnType<typeof debounce>>>({});
+  const [setting, setSetting] = useState<{key: any, value: any}>();
 
-  const save = async (key: any, value: any) => {
-    log('writing setting', key, value);
-    await call('set_setting', key, value);
-  };
+  const save = useMemo(() => async (setting: {key: any, value: any}) => {
+    log('writing setting', setting);
+    await call('set_setting', setting.key, setting.value);
+  }, []);
 
-  // Lazily create one debounced saver per key and cache it.
-  const getDebouncedSaver = (key: string) => {
-    if (!debouncedSavers.current[key]) {
-      debouncedSavers.current[key] = debounce(save, 1500);
+  const saveDb = useMemo(() => debounce(async (key, value) => {
+    log('set setting state', key, value);
+    setSetting({ key, value });
+  }, 1500), []);
+
+  const set = useMemo(() => (key, value, immediate = false) => {
+    if (immediate) {
+      return setSetting({ key, value });
     }
-    return debouncedSavers.current[key];
-  };
+    return saveDb(key, value);
+  }, [saveDb]) as SettingsContextType['set'];
 
-  const set = useMemo(
-    () =>
-      (key: any, value: any, immediate = false) => {
-        if (immediate) {
-          // Call directly — no state, no useEffect, no overwrite race.
-          return save(key, value);
-        }
-        // Each key gets its own timer; they can't clobber each other.
-        return getDebouncedSaver(key)(key, value);
-      },
-    []
-  ) as SettingsContextType['set'];
+  const get: SettingsContextType['get'] = useMemo(() => async (key, fallback) => {
+    return await call('get_setting', key, fallback);
+  }, []);
 
-  const get: SettingsContextType['get'] = useMemo(
-    () => async (key, fallback) => {
-      return await call('get_setting', key, fallback);
-    },
-    []
-  );
+  useEffect(() => {
+    if (setting) {
+      save(setting);
+    }
+  }, [save, setting]);
 
   return (
     <SettingsContext.Provider value={{ set, get }}>

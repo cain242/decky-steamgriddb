@@ -14,11 +14,7 @@ import { removeStyles } from './utils/styleInjector';
 
 export default definePlugin(() => {
   const getSetting = async (key: string, fallback: any): Promise<any> => {
-    try {
-      return await call('get_setting', key, fallback);
-    } catch (e) {
-      return fallback;
-    }
+    return await call('get_setting', key, fallback);
   };
 
   routerHook.addRoute('/steamgriddb/:appid/:assetType?', () => (
@@ -36,23 +32,17 @@ export default definePlugin(() => {
   Promise.all([
     getSetting('squares', false),
     getSetting('uniform_featured', false),
-    getSetting('cover_fit', false),
-  ]).then(([squares, uniformFeatured, coverFit]: [boolean, boolean, boolean]) => {
+  ]).then(([squares, uniformFeatured]: [boolean, boolean]) => {
     if (squares || uniformFeatured) {
       if (squares) {
-        addSquareLibraryPatch(true, coverFit);
+        addSquareLibraryPatch(true);
       }
-      addHomePatch(true, squares, uniformFeatured, false, coverFit);
+      addHomePatch(true, squares, uniformFeatured);
     }
-  }).catch((e) => {
-    console.error('[SGDB] Failed to initialize settings', e);
   });
 
   getSetting('capsule_glow_amount', 100).then((amount) => {
-    const amountNum = typeof amount === 'string' ? parseInt(amount, 10) : amount;
-    addCapsuleGlowPatch(amountNum);
-  }).catch((e) => {
-    console.error('[SGDB] Failed to initialize capsule glow', e);
+    addCapsuleGlowPatch(parseInt(amount, 10));
   });
 
   return {
@@ -69,8 +59,6 @@ export default definePlugin(() => {
       removeStyles(
         'sgdb-square-capsules-library',
         'sgdb-square-capsules-home',
-        'sgdb-cover-fit-library',
-        'sgdb-cover-fit-home',
         'sgdb-capsule-glow',
         'sgdb-carousel-logo'
       );

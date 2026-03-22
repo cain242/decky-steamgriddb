@@ -13,7 +13,7 @@ import {
   SliderField,
 } from '@decky/ui';
 import { FileSelectionType, openFilePicker } from '@decky/api';
-import { useState, useEffect, useRef, VFC, useCallback } from 'react';
+import { useState, useEffect, VFC, useCallback } from 'react';
 import {
   SiPatreon,
   SiGithub,
@@ -32,7 +32,6 @@ import useSettings, { SettingsProvider } from '../../hooks/useSettings';
 import { addHomePatch, removeHomePatch } from '../../patches/homePatch';
 import { addSquareLibraryPatch, removeSquareLibraryPatch } from '../../patches/squareLibraryPatch';
 import { addCapsuleGlowPatch } from '../../patches/capsuleGlowPatch';
-import { rerenderAfterPatchUpdate } from '../../patches/patchUtils';
 import { DIMENSIONS } from '../../constants';
 import { appgridClasses } from '../../static-classes';
 
@@ -45,84 +44,31 @@ const squareGridSizes = DIMENSIONS.grid_p.options.filter((x) => {
   return w === h;
 }).map((x) => x.value);
 
-/**
- * Apply patch add/remove operations in a single batch.
- *
- * All intermediate remove/add calls pass suppression flags (unmounting=true,
- * mounting=true) so they skip their individual rerenderAfterPatchUpdate() calls.
- * A single rerenderAfterPatchUpdate() fires at the end, which is itself debounced
- * in patchUtils — so even if this function is called in quick succession, only one
- * navigation cycle occurs.
- *
- * Previously, each call triggered its own Navigate + NavigateBack, causing up to
- * 4 jarring full-page refreshes per toggle flip.
- */
-const setPatches = (squares: boolean, uniformFeatured: boolean, coverFit: boolean): void => {
+// Set square/uniform featured game using logic written at 3am
+const setPatches = (squares: boolean, uniformFeatured: boolean): void => {
   if (!uniformFeatured && !squares) {
-    removeHomePatch(true);
+    removeHomePatch();
   } else if (squares || uniformFeatured) {
-    removeHomePatch(true);
-    addHomePatch(true, squares, uniformFeatured, false, coverFit);
+    // Remove the home patch then patch it again
+    removeHomePatch();
+    addHomePatch(false, squares, uniformFeatured);
     if (squares) {
-      removeSquareLibraryPatch(true);
-      addSquareLibraryPatch(true, coverFit);
+      addSquareLibraryPatch();
     }
   }
   if (!squares) {
-    removeSquareLibraryPatch(true);
+    removeSquareLibraryPatch();
   }
-
-  // Single batched rerender after all patches are settled.
-  // The debounce in patchUtils coalesces this with any other pending calls.
-  rerenderAfterPatchUpdate();
 };
 
 const QuickAccessSettings: VFC = () => {
   const { get, set } = useSettings();
   const [useCount, setUseCount] = useState<number | null>(null);
   const [squares, setSquares] = useState<boolean>(false);
-  const [coverFit, setCoverFit] = useState<boolean>(false);
   const [uniformFeatured, setUniformFeatured] = useState<boolean>(false);
   const [motdToggle, setMotdToggle] = useState<boolean>(false);
   const [capsuleGlowAmount, setCapsuleGlowAmount] = useState(100);
   const [debugAppid] = useState('70');
-
-  /*
-   * Refs that always hold the latest toggle values.
-   *
-   * Toggle callbacks need to read OTHER toggles' current values when calling
-   * setPatches (e.g. handleSquareToggle needs uniformFeatured and coverFit).
-   * Previously, these were captured via closure and listed in useCallback deps —
-   * meaning every time ANY toggle changed, ALL callbacks were recreated, causing
-   * the ToggleField components to receive new onChange props and potentially
-   * re-render, lose focus, or flicker.
-   *
-   * With refs, callbacks read the latest value at call time without needing it
-   * in their dependency array. This keeps callback references stable across
-   * renders, so ToggleField components don't re-render unnecessarily.
-   */
-  const squaresRef = useRef(squares);
-  const coverFitRef = useRef(coverFit);
-  const uniformFeaturedRef = useRef(uniformFeatured);
-  squaresRef.current = squares;
-  coverFitRef.current = coverFit;
-  uniformFeaturedRef.current = uniformFeatured;
-
-  /*
-   * Guard against re-initialization.
-   *
-   * The useEffect below loads settings from the Python backend on mount. It
-   * depends on `get` from useSettings(). If the settings provider doesn't
-   * memoize `get`, it gets a new reference on each render, re-triggering the
-   * effect. That re-fetch reads from the backend — but `set()` writes are
-   * async, so the backend might still hold the OLD value, causing the toggle
-   * to snap back to its previous state.
-   *
-   * The ref ensures we only load settings once per QAM panel mount. After
-   * that, local React state is the source of truth, and `set()` writes to
-   * the backend in the background for persistence.
-   */
-  const initializedRef = useRef(false);
 
   const handleMotdToggle = useCallback(async (val: boolean) => {
     set('motd_hidden_global', val, true);
@@ -132,12 +78,7 @@ const QuickAccessSettings: VFC = () => {
   const handleSquareToggle = useCallback(async (checked: boolean) => {
     set('squares', checked, true);
     setSquares(checked);
-    // If turning off squares, also turn off coverFit
-    if (!checked) {
-      set('cover_fit', false, true);
-      setCoverFit(false);
-    }
-    setPatches(checked, uniformFeaturedRef.current, checked ? coverFitRef.current : false);
+    setPatches(checked, uniformFeatured);
 
     const currentFilters = await get('filters_grid_p', {});
     if (checked) {
@@ -148,19 +89,13 @@ const QuickAccessSettings: VFC = () => {
       currentFilters['dimensions'] = DIMENSIONS.grid_p.default;
     }
     set('filters_grid_p', currentFilters, true);
-  }, [get, set]);
+  }, [get, set, uniformFeatured]);
 
   const handleUniformFeaturedToggle = useCallback(async (checked: boolean) => {
     set('uniform_featured', checked, true);
     setUniformFeatured(checked);
-    setPatches(squaresRef.current, checked, coverFitRef.current);
-  }, [set]);
-
-  const handleCoverFitToggle = useCallback(async (checked: boolean) => {
-    set('cover_fit', checked, true);
-    setCoverFit(checked);
-    setPatches(squaresRef.current, uniformFeaturedRef.current, checked);
-  }, [set]);
+    setPatches(squares, checked);
+  }, [set, squares]);
 
   const handleCapsuleGlowChange = useCallback(async (val: number) => {
     set('capsule_glow_amount', val, true);
@@ -169,27 +104,17 @@ const QuickAccessSettings: VFC = () => {
   }, [set]);
 
   const handleSetUseCount = useCallback(async (val: number) => {
-    set('plugin_use_count', val, true);
+    set('plugin_use_count', val, false);
     setUseCount(val);
   }, [set]);
 
-useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
+  useEffect(() => {
     (async () => {
-      try {
-        setUseCount(await get('plugin_use_count', 0));
-        setSquares(await get('squares', false));
-        setCoverFit(await get('cover_fit', false));
-        setUniformFeatured(await get('uniform_featured', false));
-        setCapsuleGlowAmount(await get('capsule_glow_amount', 100));
-        setMotdToggle(await get('motd_hidden_global', false));
-      } catch (error) {
-        console.error('[SGDB] Failed to load initial settings in QAM:', error);
-        // Fallbacks are already handled by your initial useState definitions,
-        // so we just catch the error to prevent the async IIFE from hanging.
-      }
+      setUseCount(await get('plugin_use_count', 0));
+      setSquares(await get('squares', false));
+      setUniformFeatured(await get('uniform_featured', false));
+      setCapsuleGlowAmount(await get('capsule_glow_amount', 100));
+      setMotdToggle(await get('motd_hidden_global', false));
     })();
   }, [get]);
 
@@ -288,16 +213,6 @@ useEffect(() => {
             onChange={handleSquareToggle}
           />
         </PanelSectionRow>
-        {squares && (
-          <PanelSectionRow>
-            <ToggleField
-              label={t('LABEL_COVER_FIT', 'Cover Fit')}
-              description={t('LABEL_COVER_FIT_DESC', 'Crop vertical artwork to fill the square frame without distortion. Keeps the top of the image visible (best for covers with logos at the top).')}
-              checked={coverFit}
-              onChange={handleCoverFitToggle}
-            />
-          </PanelSectionRow>
-        )}
         <PanelSectionRow>
           <ToggleField
             label={t('LABEL_UNIFORM_RECENT', 'Matching Recents Capsule')}

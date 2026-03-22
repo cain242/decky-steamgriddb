@@ -10,7 +10,7 @@ import {
 import { IconsModule } from '@decky/ui';
 
 // @todo: find a better way to get this
-const ErrorIcon = IconsModule && Object.values(IconsModule).find((mod: any) => mod?.toString().includes('M27.7974 10L26.6274 2H33.3674L32.2374 10H27.7974Z')) as FC<SVGAttributes<SVGElement>>;
+const ErrorIcon = Object.values(IconsModule).find((mod: any) => mod?.toString().includes('M27.7974 10L26.6274 2H33.3674L32.2374 10H27.7974Z')) as FC<SVGAttributes<SVGElement>>;
 
 interface LazyImage extends ImgHTMLAttributes<HTMLImageElement | HTMLVideoElement> {
   isVideo?: boolean,

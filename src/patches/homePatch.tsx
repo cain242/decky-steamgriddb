@@ -11,7 +11,7 @@ import { RoutePatch, routerHook } from '@decky/api';
 import { libraryAssetImageClasses, appportraitClasses, homeCarouselClasses, miscInfoClasses } from '../static-classes';
 // import LibraryImage from '../components/asset/LibraryImage';
 // import { ASSET_TYPE } from '../constants';
-import { addStyle, removeStyle, removeStyles } from '../utils/styleInjector';
+import { addStyle, removeStyle } from '../utils/styleInjector';
 
 import { rerenderAfterPatchUpdate } from './patchUtils';
 
@@ -30,28 +30,16 @@ const calculateDefaultCapsuleWidth = (newHeight: number) => {
   return newHeight * ratio;
 };
 
-export const addHomePatch = (mounting = false, square = false, matchFeatured = false, carouselLogo = false, coverFit = false) => {
-  removeHomePatch(true);
+export const addHomePatch = (mounting = false, square = false, matchFeatured = false, carouselLogo = false) => {
   if (square) {
     addStyle('sgdb-square-capsules-home', `
       /* only select home page */
       .${appportraitClasses.InRecentGames} .${libraryAssetImageClasses.Container}.${libraryAssetImageClasses.PortraitImage} {
-        aspect-ratio: 1 / 1 !important;
-        padding-top: unset !important;
+        padding-top: 100% !important;
       }
     `);
-    if (coverFit) {
-      addStyle('sgdb-cover-fit-home', `
-        .${appportraitClasses.InRecentGames} .${libraryAssetImageClasses.Container}.${libraryAssetImageClasses.PortraitImage} img {
-          object-fit: cover !important;
-          object-position: top center !important;
-        }
-      `);
-    } else {
-      removeStyle('sgdb-cover-fit-home');
-    }
   } else {
-    removeStyles('sgdb-square-capsules-home', 'sgdb-cover-fit-home');
+    removeStyle('sgdb-square-capsules-home');
   }
 
   if (carouselLogo) {
@@ -97,7 +85,6 @@ export const addHomePatch = (mounting = false, square = false, matchFeatured = f
 
         let cache3: any = null;
         const recents = findInReactTree(ret2, (x) => x?.props && ('autoFocus' in x.props) && ('showBackground' in x.props));
-        if (!recents || !recents.type) return ret2; // <-- INSERT GUARD 1
 
         wrapReactType(recents);
         afterPatch(recents.type, 'type', (_: Record<string, unknown>[], ret3?: any) => {
@@ -109,8 +96,6 @@ export const addHomePatch = (mounting = false, square = false, matchFeatured = f
           }
 
           const p = findInReactTree(ret3, (x) => x?.props?.games && x?.props.onItemFocus);
-          if (!p || !p.type) return ret3; //
-
           afterPatch(p, 'type', (_: Record<string, unknown>[], ret4?: any) => {
             // const cache6: any[] = []; // cache carousel items
             cache3 = ret3;
@@ -118,8 +103,6 @@ export const addHomePatch = (mounting = false, square = false, matchFeatured = f
             wrapReactType(ret4);
             afterPatch(ret4.type, 'type', (_: Record<string, unknown>[], ret5?: any) => {
               const carouselProps = findInReactTree(ret5, (x) => x?.nItemHeight && x?.fnItemRenderer && x?.fnGetColumnWidth);
-              if (!carouselProps) return ret5; // <-- INSERT GUARD 3
-              
               const itemHeight = carouselProps.nItemHeight;
               let hasSeparator = false;
               /*
@@ -252,9 +235,7 @@ export const addHomePatch = (mounting = false, square = false, matchFeatured = f
 
 export function removeHomePatch(unmounting = false): void {
   if (patch) {
-    const sp = findSP();
-    sp?.window?.document?.getElementById('sgdb-square-capsules-home')?.remove();
-    sp?.window?.document?.getElementById('sgdb-cover-fit-home')?.remove();
+    findSP().window.document.getElementById('sgdb-square-capsules-home')?.remove();
     routerHook.removePatch('/library/home', patch);
     patch = undefined;
 
