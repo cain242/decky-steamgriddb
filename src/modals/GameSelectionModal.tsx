@@ -30,7 +30,7 @@ import EshopIcon from '../components/Icons/EshopIcon';
 import GogIcon from '../components/Icons/GogIcon';
 
 // @todo: find a better way to get this
-const SearchIcon = Object.values(IconsModule).find((mod: any) => mod?.toString().includes('M27.5 24C29.4972 21.1283 30.3471')) as FC<SVGAttributes<SVGElement>>;
+const SearchIcon = IconsModule && Object.values(IconsModule).find((mod: any) => mod?.toString().includes('M27.5 24C29.4972 21.1283 30.3471')) as FC<SVGAttributes<SVGElement>>;
 
 const utcYear = (date: number) => new Date(date * 1000).toLocaleString('en-US', { year: 'numeric', timeZone: 'UTC' });
 

@@ -152,10 +152,11 @@ const contextMenuPatch = (LibraryContextMenu: any) => {
 export const LibraryContextMenu = fakeRenderComponent(
   Object.values(
     findModuleByExport((e: Export) => e?.toString && e.toString().includes('().LibraryContextMenu')) || {}
-  ).find((sibling) => (
-    sibling?.toString().includes('createElement') &&
-    sibling?.toString().includes('navigator:')
-  )) as FC
+  ).find((sibling) => {
+    const str = sibling?.toString?.() ?? '';
+    return (str.includes('createElement') || str.includes('jsx')) &&
+      str.includes('navigator:');
+  }) as FC
 )?.type;
 
 export default contextMenuPatch;
